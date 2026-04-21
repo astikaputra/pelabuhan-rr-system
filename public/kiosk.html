@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>KIOSK ANTRIAN PENUMPANG</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #0a2b5c;
+            color: #fff;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+        }
+
+        h1 {
+            margin-top: 20px;
+        }
+
+        .container {
+            padding: 30px;
+        }
+
+        .section {
+            margin: 30px 0;
+        }
+
+        .btn {
+            width: 260px;
+            height: 90px;
+            font-size: 28px;
+            margin: 15px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+
+        .vehicle {
+            background: #f39c12;
+            color: #000;
+        }
+
+        .passenger {
+            background: #27ae60;
+            color: #fff;
+        }
+
+        .vip {
+            background: #d4af37;
+            color: #000;
+        }
+
+        .vvip {
+            background: #c0392b;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .queue-box {
+            background: #fff;
+            color: #000;
+            padding: 40px;
+            border-radius: 12px;
+            font-size: 42px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>AMBIL ANTRIAN PENUMPANG</h1>
+
+<div class="container">
+
+    <!-- STEP 1 -->
+    <div class="section" id="step-vehicle">
+        <h2>Pilih Kendaraan</h2>
+        <button class="btn vehicle" onclick="selectVehicle(1)">Motor</button>
+        <button class="btn vehicle" onclick="selectVehicle(2)">Mobil</button>
+        <button class="btn vehicle" onclick="selectVehicle(3)">Bus</button>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="section hidden" id="step-passenger">
+        <h2>Pilih Tipe Penumpang</h2>
+        <button class="btn passenger" onclick="selectPassenger(1)">Normal</button>
+        <button class="btn vip" onclick="selectPassenger(2)">VIP</button>
+        <button class="btn vvip" onclick="selectPassenger(3)">VVIP</button>
+    </div>
+
+    <!-- RESULT -->
+    <div class="section hidden" id="step-result">
+        <h2>Nomor Antrian Anda</h2>
+        <div class="queue-box" id="queue_number">A-001</div>
+        <p>Silakan menunggu panggilan di layar</p>
+        <br>
+        <button class="btn passenger" onclick="resetKiosk()">Selesai</button>
+    </div>
+
+</div>
+
+<script>
+    let vehicleCategoryId = null;
+    let passengerTypeId = null;
+
+    const API_BASE = "http://127.0.0.1:8000/api";
+
+    function selectVehicle(id) {
+        vehicleCategoryId = id;
+        document.getElementById("step-vehicle").classList.add("hidden");
+        document.getElementById("step-passenger").classList.remove("hidden");
+    }
+
+    function selectPassenger(id) {
+        passengerTypeId = id;
+        submitQueue();
+    }
+
+    function submitQueue() {
+        fetch(API_BASE + "/passenger/queue", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            },
+            body: JSON.stringify({
+                vehicle_category_id: vehicleCategoryId,
+                passenger_type_id: passengerTypeId
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById("queue_number").innerText = data.queue_number;
+            document.getElementById("step-passenger").classList.add("hidden");
+            document.getElementById("step-result").classList.remove("hidden");
+        })
+        .catch(err => {
+            alert("Gagal mengambil antrian");
+            resetKiosk();
+        });
+        
+        // .then(data => {
+        //     if (data.status === "success" && data.queue_number) {
+        //         document.getElementById("queue_number").innerText = data.queue_number;
+        //     } else {
+        //         alert("Gagal mengambil nomor antrian");
+        //         resetKiosk();
+        //         console.error("Response:", data);
+        //     }
+        // });
+
+    }
+
+    function resetKiosk() {
+        vehicleCategoryId = null;
+        passengerTypeId = null;
+        document.getElementById("step-result").classList.add("hidden");
+        document.getElementById("step-vehicle").classList.remove("hidden");
+    }
+</script>
+
+</body>
+</html>

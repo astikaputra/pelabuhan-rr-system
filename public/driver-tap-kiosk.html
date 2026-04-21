@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>KIOSK DRIVER</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+    background:#1f2933;
+    color:white;
+    font-family:Arial, sans-serif;
+    text-align:center;
+    margin:0;
+    padding-top:40px;
+}
+h1 { font-size:38px; }
+
+input {
+    font-size:26px;
+    padding:15px;
+    width:80%;
+    text-align:center;
+    margin-top:30px;
+}
+
+#status {
+    margin-top:30px;
+    font-size:28px;
+}
+
+.buttons {
+    margin-top:40px;
+}
+button {
+    font-size:26px;
+    padding:20px 40px;
+    margin:10px;
+    border:none;
+    border-radius:10px;
+    cursor:pointer;
+}
+
+.btn-defer {
+    background-color: #fbbf24; /* kuning */
+    color: #000;
+}
+
+.btn-break { background:#3b82f6; color:white; }
+.btn-off { background:#ef4444; color:white; }
+.hidden { display:none; }
+</style>
+</head>
+
+<body>
+
+<h1>TAP KARTU DRIVER</h1>
+
+<input id="cardInput" type="text" placeholder="Tempel kartu / scan barcode" autofocus>
+
+<div id="status">Menunggu kartu...</div>
+
+<div class="buttons hidden" id="actionButtons">
+    <button class="btn-defer" onclick="driverDefer()">TUNDA GILIRAN</button>
+    <button class="btn-break" onclick="driverBreak()">ISTIRAHAT</button>
+    <button class="btn-off" onclick="driverOff()">KELUAR/PULANG</button>
+</div>
+
+<script>
+const API_BASE = "http://127.0.0.1:8000/api";
+let currentDriverId = null;
+
+const input = document.getElementById("cardInput");
+const statusEl = document.getElementById("status");
+const buttons = document.getElementById("actionButtons");
+
+input.focus();
+
+input.addEventListener("keyup", function(e){
+    if (e.key === "Enter") {
+        const cardUid = input.value.trim();
+        input.value = "";
+        buttons.classList.add("hidden");
+
+        statusEl.innerText = "Memproses...";
+
+        fetch(API_BASE + "/driver/tap", {
+            method:"POST",
+            headers:{ "Content-Type":"application/json" },
+            body:JSON.stringify({ card_uid:cardUid })
+        })
+        .then(res => res.json())
+        .then(res => {
+            if (res.status !== "success") {
+                statusEl.innerText = res.message || "Gagal";
+                return;
+            }
+
+            statusEl.innerText = res.data.message;
+
+            // simpan driver_id jika tersedia
+            if (res.data.driver_id) {
+                currentDriverId = res.data.driver_id;
+                buttons.classList.remove("hidden");
+            }
+        })
+        .catch(() => {
+            statusEl.innerText = "Kesalahan koneksi";
+        });
+    }
+});
+
+function driverDefer() {
+    if (!currentDriverId) {
+        statusEl.innerText = "Driver tidak dikenal";
+        return;
+    }
+
+    statusEl.innerText = "Menunda giliran...";
+
+    fetch(API_BASE + "/driver/defer", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        },
+        body: JSON.stringify({
+            driver_id: currentDriverId
+        })
+    })
+    .then(async res => {
+        const text = await res.text();
+        try {
+            return JSON.parse(text);
+        } catch {
+            throw new Error("Response tidak valid");
+        }
+    })
+    .then(res => {
+        if (res.status === "success") {
+            statusEl.innerText =
+                "Giliran Anda ditunda sekali. Silakan kembali.";
+            actionButtons.classList.add("hidden");
+        } else {
+            statusEl.innerText =
+                res.message || "Tidak bisa menunda giliran";
+        }
+    })
+    .catch(() => {
+        statusEl.innerText = "Kesalahan sistem";
+    });
+}
+
+function driverBreak() {
+    if (!currentDriverId) {
+        statusEl.innerText = "Driver tidak dikenal";
+        return;
+    }
+
+    statusEl.innerText = "Memproses istirahat...";
+
+    fetch(API_BASE + "/driver/break", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        },
+        body: JSON.stringify({
+            driver_id: currentDriverId
+        })
+    })
+    .then(async res => {
+        const text = await res.text();   // ⬅️ baca sebagai text dulu
+        try {
+            return JSON.parse(text);     // ⬅️ baru parse JSON
+        } catch (e) {
+            console.error("Bukan JSON:", text);
+            throw new Error("Response tidak valid");
+        }
+    })
+    .then(res => {
+        if (res.status === "success") {
+            statusEl.innerText = res.data.message || "Status: ISTIRAHAT";
+            buttons.classList.add("hidden");
+        } else {
+            statusEl.innerText = res.message || "Tidak bisa istirahat";
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        statusEl.innerText = "Kesalahan sistem";
+    });
+}
+
+function driverOff() {
+    fetch(API_BASE + "/driver/off-duty", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({ driver_id: currentDriverId })
+    })
+    .then(res=>res.json())
+    .then(res=>{
+        statusEl.innerText = "Status: KELUAR / PULANG";
+        buttons.classList.add("hidden");
+    });
+}
+</script>
+
+</body>
+</html>

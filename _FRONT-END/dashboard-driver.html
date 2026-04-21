@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard Driver</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+}
+
+header {
+    background: #0a2b5c;
+    color: #fff;
+    padding: 20px;
+    font-size: 32px;
+}
+
+.summary {
+    display: flex;
+    gap: 20px;
+    padding: 20px;
+}
+
+.card {
+    flex: 1;
+    padding: 20px;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 24px;
+}
+
+.ready { background: #2ecc71; }
+.ontrip { background: #f1c40f; color: #000; }
+.inactive { background: #95a5a6; }
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+}
+
+th, td {
+    padding: 12px;
+    border-bottom: 1px solid #ddd;
+    text-align: left;
+    font-size: 18px;
+}
+
+.status-badge {
+    padding: 6px 12px;
+    border-radius: 8px;
+    color: #fff;
+    font-weight: bold;
+}
+
+.st-ready { background: #2ecc71; }
+.st-ontrip { background: #f1c40f; color:#000; }
+.st-inactive { background: #7f8c8d; }
+
+footer {
+    text-align: center;
+    padding: 10px;
+    font-size: 16px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    Dashboard Status Driver
+</header>
+
+<div class="summary">
+    <div class="card ready" id="countReady">Ready: 0</div>
+    <div class="card ontrip" id="countOnTrip">On Trip: 0</div>
+    <div class="card inactive" id="countInactive">Inactive: 0</div>
+</div>
+
+<div style="padding:20px">
+<table>
+    <thead>
+        <tr>
+            <th>Nama Driver</th>
+            <th>Kendaraan</th>
+            <th>Plat</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody id="driverTable">
+        <tr><td colspan="4">Memuat data...</td></tr>
+    </tbody>
+</table>
+</div>
+
+<footer id="clock"></footer>
+
+<script>
+const API_BASE = "http://127.0.0.1:8000/api";
+
+function loadDashboard() {
+    fetch(API_BASE + "/dashboard/drivers")
+        .then(res => res.json())
+        .then(res => {
+            const tbody = document.getElementById("driverTable");
+            tbody.innerHTML = "";
+
+            res.data.forEach(d => {
+                let badge = "st-inactive";
+                let label = d.status.toUpperCase();
+
+                if (d.status === "ready") badge = "st-ready";
+                if (d.status === "on_trip") badge = "st-ontrip";
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${d.name}</td>
+                        <td>${d.vehicle}</td>
+                        <td>${d.plate ?? '-'}</td>
+                        <td>
+                            <span class="status-badge ${badge}">
+                                ${label}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById("countReady").innerText =
+                "Ready: " + res.counts.ready;
+            document.getElementById("countOnTrip").innerText =
+                "On Trip: " + res.counts.on_trip;
+            document.getElementById("countInactive").innerText =
+                "Inactive: " + res.counts.inactive;
+        });
+}
+
+function updateClock() {
+    const now = new Date();
+    document.getElementById("clock").innerText =
+        now.toLocaleDateString("id-ID") + " - " +
+        now.toLocaleTimeString("id-ID");
+}
+
+setInterval(loadDashboard, 3000);
+setInterval(updateClock, 1000);
+
+loadDashboard();
+updateClock();
+</script>
+
+</body>
+</html>

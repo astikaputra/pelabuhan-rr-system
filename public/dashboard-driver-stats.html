@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Statistik Driver</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f3f4f6;
+    margin: 0;
+}
+header {
+    background: #1e3a8a;
+    color: white;
+    padding: 20px;
+    font-size: 28px;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+}
+th, td {
+    padding: 12px;
+    border-bottom: 1px solid #ddd;
+    text-align: left;
+    font-size: 16px;
+}
+th {
+    background: #e5e7eb;
+}
+.status-ready { color: green; font-weight: bold; }
+.status-on_trip { color: orange; font-weight: bold; }
+.status-break { color: blue; font-weight: bold; }
+.status-off_duty { color: gray; font-weight: bold; }
+</style>
+</head>
+
+<body>
+
+<header>Dashboard Statistik Jam Kerja Driver</header>
+
+<table>
+<thead>
+<tr>
+    <th>Driver</th>
+    <th>Kendaraan</th>
+    <th>Status</th>
+    <th>Trip</th>
+    <th>Menit Antar</th>
+    <th>Jumlah Break</th>
+    <th>Menit Istirahat</th>
+</tr>
+</thead>
+<tbody id="tableBody"></tbody>
+</table>
+
+<script>
+const API_BASE = "http://127.0.0.1:8000/api";
+
+function loadStats() {
+    fetch(API_BASE + "/dashboard/driver-stats")
+    .then(res => res.json())
+    //.then(res => {
+   //     const tbody = document.getElementById("tableBody");
+   //     tbody.innerHTML = "";
+
+    //     res.data.forEach(d => {
+    //         tbody.innerHTML += `
+    //             <tr>
+    //                 <td>${d.name}</td>
+    //                 <td>${d.vehicle}</td>
+    //                 <td class="status-${d.status}">${d.status.replace('_',' ')}</td>
+    //                 <td>${d.trip_count}</td>
+    //                 <td>${d.trip_minutes}</td>
+    //                 <td>${d.break_count}</td>
+    //                 <td>${d.break_minutes}</td>
+    //             </tr>
+    //         `;
+    //     });
+    // });
+    .then(res => {
+
+        if (res.status !== "success" || !Array.isArray(res.data)) {
+            console.error("API ERROR:", res);
+            return;
+        }
+
+        const tbody = document.getElementById("tableBody");
+        tbody.innerHTML = "";
+
+        res.data.forEach(d => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${d.name}</td>
+                    <td>${d.vehicle}</td>
+                    <td>${d.status.replace('_',' ')}</td>
+                    <td>${d.trip_count}</td>
+                    <td>${d.trip_minutes}</td>
+                    <td>${d.break_count}</td>
+                    <td>${d.break_minutes}</td>
+                </tr>
+            `;
+        });
+    });       
+
+}
+
+setInterval(loadStats, 5000);
+loadStats();
+</script>
+
+</body>
+</html>

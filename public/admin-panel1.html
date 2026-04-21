@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Port Queue — Admin Panel</title>
+
+<style>
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#0e1117;color:#e8eaf0}
+header{height:52px;background:#161b27;display:flex;align-items:center;justify-content:space-between;padding:0 20px}
+main{padding:20px}
+button{cursor:pointer}
+.card{background:#1c2335;border-radius:8px;padding:16px;margin-bottom:16px}
+input,select{width:100%;padding:8px;margin-top:6px;background:#161b27;color:#fff;border:1px solid #333;border-radius:6px}
+.btn{padding:8px 14px;border-radius:6px;border:none}
+.btn-primary{background:#3b82f6;color:#fff}
+.btn-danger{background:#dc2626;color:#fff}
+table{width:100%;border-collapse:collapse}
+td,th{padding:10px;border-bottom:1px solid #333;font-size:14px}
+</style>
+</head>
+
+<body>
+
+<header>
+  <strong>PORT QUEUE — ADMIN</strong>
+  <span id="status">connecting…</span>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>Add Driver</h2>
+
+    <label>Name</label>
+    <input id="name" placeholder="Driver name">
+
+    <label>Driver Code</label>
+    <input id="code" placeholder="DRV-001">
+
+    <label>Vehicle Category</label>
+    <select id="category"></select>
+
+    <label>Plate Number</label>
+    <input id="plate" placeholder="DK 1234 AB">
+
+    <br><br>
+    <button class="btn btn-primary" onclick="createDriver()">Save Driver</button>
+    <div id="error" style="color:#f87171;margin-top:10px"></div>
+  </div>
+
+  <div class="card">
+    <h2>Driver List</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Code</th>
+          <th>Category</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="drivers"></tbody>
+    </table>
+  </div>
+
+</main>
+
+<script>
+const API = 'http://127.0.0.1:8000/api/admin';
+let categories = [];
+
+/* =======================
+   BASIC API HELPER
+======================= */
+async function api(method, url, body) {
+  const opts = {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    }
+  };
+  if (body) opts.body = JSON.stringify(body);
+
+  const res = await fetch(API + url, opts);
+  const txt = await res.text();
+  let json = {};
+  try { json = JSON.parse(txt) } catch {}
+
+  if (!res.ok) {
+    throw json;
+  }
+  return json;
+}
+
+/* =======================
+   LOAD VEHICLE CATEGORIES
+======================= */
+async function loadCategories() {
+  categories = await api('GET', '/vehicle-categories');
+  const sel = document.getElementById('category');
+  sel.innerHTML = '<option value="">-- Choose --</option>';
+  categories.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c.id;
+    o.textContent = c.name;
+    sel.appendChild(o);
+  });
+}
+
+/* =======================
+   LOAD DRIVERS
+======================= */
+async function loadDrivers() {
+  const data = await api('GET', '/drivers');
+  const tbody = document.getElementById('drivers');
+  tbody.innerHTML = '';
+  data.forEach(d => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${d.name}</td>
+        <td>${d.driver_code}</td>
+        <td>${d.vehicle_category?.name ?? '-'}</td>
+        <td>${d.status}</td>
+      </tr>
+    `;
+  });
+}
+
+/* =======================
+   CREATE DRIVER (FIXED)
+======================= */
+async function createDriver() {
+  document.getElementById('error').innerText = '';
+
+  const payload = {
+    name: document.getElementById('name').value.trim(),
+    driver_code: document.getElementById('code').value.trim(),
+    vehicle_category_id: parseInt(document.getElementById('category').value),
+    plate_number: document.getElementById('plate').value.trim()
+  };
+
+  if (!payload.name || !payload.driver_code || !payload.vehicle_category_id) {
+    document.getElementById('error').innerText = 'All fields except plate are required.';
+    return;
+  }
+
+  try {
+    await api('POST', '/drivers', payload);
+    document.getElementById('name').value = '';
+    document.getElementById('code').value = '';
+    document.getElementById('plate').value = '';
+    document.getElementById('category').value = '';
+    loadDrivers();
+  } catch (e) {
+    document.getElementById('error').innerText =
+      e?.errors ? JSON.stringify(e.errors) : 'Failed to save';
+  }
+}
+
+/* =======================
+   INIT
+======================= */
+(async () => {
+  try {
+    await loadCategories();
+    await loadDrivers();
+    document.getElementById('status').innerText = 'LIVE';
+  } catch {
+    document.getElementById('status').innerText = 'OFFLINE';
+  }
+})();
+</script>
+
+</body>
+</html>
+``

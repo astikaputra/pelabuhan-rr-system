@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>KIOSK DRIVER</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #222;
+            color: #fff;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+        }
+
+        h1 {
+            background: #1abc9c;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .container {
+            padding: 40px;
+        }
+
+        .card-box {
+            border: 4px dashed #1abc9c;
+            padding: 60px;
+            margin: 30px auto;
+            max-width: 500px;
+            font-size: 28px;
+        }
+
+        .status {
+            font-size: 32px;
+            margin-top: 20px;
+        }
+
+        .ready { color: #2ecc71; }
+        .ontrip { color: #f39c12; }
+        .error { color: #e74c3c; }
+
+        .btn {
+            margin-top: 30px;
+            padding: 20px 40px;
+            font-size: 24px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            background: #3498db;
+            color: #fff;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        input {
+            font-size: 24px;
+            padding: 10px;
+            width: 80%;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<h1>KIOSK DRIVER</h1>
+
+<div class="container">
+
+    <div class="card-box">
+        <p>TAP KARTU DRIVER</p>
+        <!-- simulasi RFID / Barcode -->
+        <input type="text" id="card_uid" placeholder="Tempel Kartu / Scan Barcode" autofocus>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <button id="checkoutBtn" class="btn hidden" onclick="checkout()">SELESAI ANTAR</button>
+
+</div>
+
+<script>
+    const API_BASE = "http://127.0.0.1:8000/api";
+    let currentDriverId = null;
+
+    const input = document.getElementById("card_uid");
+    input.addEventListener("keypress", function(e) {
+        if (e.key === "Enter") {
+            checkin();
+        }
+    });
+
+    function checkin() {
+        const cardUid = input.value.trim();
+        if (!cardUid) return;
+
+        fetch(API_BASE + "/driver/checkin", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            },
+            body: JSON.stringify({ card_uid: cardUid })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === "success") {
+                currentDriverId = data.data.driver_id;
+                showStatus("STATUS: READY<br>Silakan menunggu panggilan", "ready");
+                document.getElementById("checkoutBtn").classList.add("hidden");
+            } else {
+                showStatus(data.message, "error");
+            }
+        })
+        .catch(() => {
+            showStatus("Kesalahan sistem", "error");
+        });
+
+        input.value = "";
+    }
+
+    function checkout() {
+        if (!currentDriverId) return;
+
+        fetch(API_BASE + "/driver/checkout", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            },
+            body: JSON.stringify({ driver_id: currentDriverId })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === "success") {
+                showStatus("STATUS: READY<br>Terima kasih", "ready");
+                currentDriverId = null;
+                document.getElementById("checkoutBtn").classList.add("hidden");
+            } else {
+                showStatus(data.message, "error");
+            }
+        });
+    }
+
+    function showStatus(msg, type) {
+        const el = document.getElementById("status");
+        el.innerHTML = msg;
+        el.className = "status " + type;
+    }
+</script>
+
+</body>
+</html>
+``

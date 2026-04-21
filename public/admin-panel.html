@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Port Queue — Admin Panel</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+/* ── RESET & VARIABLES ─────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --sidebar-w:220px; --hdr-h:52px;
+  --c-bg:#0e1117; --c-surface:#161b27; --c-card:#1c2335;
+  --c-border:rgba(255,255,255,0.08); --c-border2:rgba(255,255,255,0.14);
+  --c-text:#e8eaf0; --c-muted:#7a8099;
+  --c-accent:#3b82f6; --c-accent2:#60a5fa;
+  --c-green:#34d399; --c-amber:#fbbf24; --c-red:#f87171;
+  --c-purple:#a78bfa; --c-teal:#2dd4bf;
+  --font:'Segoe UI',system-ui,sans-serif; --mono:'Consolas','Fira Mono',monospace;
+  --r:8px; --rl:12px;
+}
+html,body{height:100%;background:var(--c-bg);color:var(--c-text);font-family:var(--font);font-size:14px;}
+body{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+
+/* ── HEADER ─────────────────────────────────────────────────────── */
+header{height:var(--hdr-h);min-height:var(--hdr-h);background:var(--c-surface);border-bottom:0.5px solid var(--c-border);display:flex;align-items:center;justify-content:space-between;padding:0 20px;z-index:10;}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:0.05em;color:var(--c-accent2);}
+.logo-box{width:28px;height:28px;background:var(--c-accent);border-radius:6px;display:flex;align-items:center;justify-content:center;}
+.logo-box svg{width:16px;height:16px;fill:#fff;}
+.hdr-right{display:flex;align-items:center;gap:12px;}
+.badge{font-size:11px;font-family:var(--mono);border-radius:20px;padding:3px 10px;border:0.5px solid;}
+.badge-live{background:rgba(52,211,153,0.12);color:var(--c-green);border-color:rgba(52,211,153,0.3);}
+.badge-err{background:rgba(248,113,113,0.12);color:var(--c-red);border-color:rgba(248,113,113,0.3);}
+.badge-warn{background:rgba(251,191,36,0.12);color:var(--c-amber);border-color:rgba(251,191,36,0.3);}
+.api-tag{font-size:11px;font-family:var(--mono);color:var(--c-muted);background:rgba(255,255,255,0.05);border:0.5px solid var(--c-border);border-radius:4px;padding:2px 8px;}
+.hdr-avatar{width:30px;height:30px;border-radius:50%;background:var(--c-accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;}
+
+/* ── LAYOUT ─────────────────────────────────────────────────────── */
+.layout{display:flex;flex:1;overflow:hidden;}
+
+/* ── SIDEBAR ─────────────────────────────────────────────────────── */
+aside{width:var(--sidebar-w);min-width:var(--sidebar-w);background:var(--c-surface);border-right:0.5px solid var(--c-border);display:flex;flex-direction:column;overflow-y:auto;padding:16px 0;}
+.nav-section{padding:0 12px;margin-bottom:4px;}
+.nav-label{font-size:10px;font-family:var(--mono);letter-spacing:0.12em;color:var(--c-muted);text-transform:uppercase;padding:8px 8px 4px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);cursor:pointer;color:var(--c-muted);font-size:13px;transition:all .15s;border:0.5px solid transparent;margin-bottom:2px;}
+.nav-item:hover{background:rgba(255,255,255,0.05);color:var(--c-text);}
+.nav-item.active{background:rgba(59,130,246,0.15);color:var(--c-accent2);border-color:rgba(59,130,246,0.25);}
+.nav-item svg{width:15px;height:15px;flex-shrink:0;}
+.nav-div{margin:8px 12px;border-top:0.5px solid var(--c-border);}
+
+/* ── MAIN ───────────────────────────────────────────────────────── */
+main{flex:1;overflow-y:auto;padding:24px;background:var(--c-bg);}
+.page-hdr{margin-bottom:20px;}
+.page-hdr h1{font-size:18px;font-weight:500;}
+.page-hdr p{font-size:13px;color:var(--c-muted);margin-top:3px;}
+
+/* ── STATS ──────────────────────────────────────────────────────── */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:20px;}
+.stat-card{background:var(--c-card);border:0.5px solid var(--c-border);border-radius:var(--r);padding:14px 16px;}
+.stat-label{font-size:11px;color:var(--c-muted);font-family:var(--mono);letter-spacing:.03em;margin-bottom:6px;}
+.stat-val{font-size:22px;font-weight:500;line-height:1;}
+.stat-sub{font-size:11px;color:var(--c-muted);margin-top:4px;}
+.c-green{color:var(--c-green);} .c-amber{color:var(--c-amber);} .c-red{color:var(--c-red);} .c-blue{color:var(--c-accent2);} .c-purple{color:var(--c-purple);}
+
+/* ── CARD ───────────────────────────────────────────────────────── */
+.card{background:var(--c-card);border:0.5px solid var(--c-border);border-radius:var(--rl);overflow:hidden;margin-bottom:20px;}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:0.5px solid var(--c-border);}
+.card-hdr h2{font-size:14px;font-weight:500;}
+.card-actions{display:flex;gap:8px;align-items:center;}
+
+/* ── BUTTONS ────────────────────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--r);border:0.5px solid var(--c-border2);background:transparent;color:var(--c-text);font-size:12px;font-family:var(--font);cursor:pointer;transition:all .15s;}
+.btn:hover:not(:disabled){background:rgba(255,255,255,0.06);}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-primary{background:var(--c-accent);border-color:var(--c-accent);color:#fff;}
+.btn-primary:hover:not(:disabled){background:#2563eb;}
+.btn svg,.btn-icon{width:13px;height:13px;}
+.action-btn{background:transparent;border:0.5px solid var(--c-border);border-radius:6px;color:var(--c-muted);cursor:pointer;padding:4px 9px;font-size:11px;font-family:var(--font);transition:all .15s;margin-right:4px;}
+.action-btn:hover{color:var(--c-text);border-color:var(--c-border2);}
+.action-btn.danger{color:var(--c-red);border-color:rgba(248,113,113,0.2);}
+
+/* ── SEARCH INPUT ───────────────────────────────────────────────── */
+.search-input{background:rgba(255,255,255,0.05);border:0.5px solid var(--c-border);border-radius:var(--r);padding:6px 12px;color:var(--c-text);font-size:12px;font-family:var(--font);outline:none;width:180px;}
+.search-input:focus{border-color:var(--c-accent);}
+.search-input::placeholder{color:var(--c-muted);}
+
+/* ── TABLE ──────────────────────────────────────────────────────── */
+table{width:100%;border-collapse:collapse;}
+th{text-align:left;font-size:11px;font-family:var(--mono);letter-spacing:.06em;color:var(--c-muted);padding:10px 18px;border-bottom:0.5px solid var(--c-border);font-weight:400;text-transform:uppercase;}
+td{padding:11px 18px;border-bottom:0.5px solid rgba(255,255,255,.04);font-size:13px;color:var(--c-text);}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,.02);}
+
+/* ── PILLS ──────────────────────────────────────────────────────── */
+.pill{display:inline-block;font-size:11px;font-family:var(--mono);padding:2px 10px;border-radius:20px;}
+.pill-green{background:rgba(52,211,153,.12);color:var(--c-green);border:0.5px solid rgba(52,211,153,.25);}
+.pill-amber{background:rgba(251,191,36,.12);color:var(--c-amber);border:0.5px solid rgba(251,191,36,.25);}
+.pill-red{background:rgba(248,113,113,.12);color:var(--c-red);border:0.5px solid rgba(248,113,113,.25);}
+.pill-blue{background:rgba(59,130,246,.12);color:var(--c-accent2);border:0.5px solid rgba(59,130,246,.25);}
+.pill-gray{background:rgba(255,255,255,.06);color:var(--c-muted);border:0.5px solid var(--c-border);}
+.pill-purple{background:rgba(167,139,250,.12);color:var(--c-purple);border:0.5px solid rgba(167,139,250,.25);}
+
+/* ── AVATAR ─────────────────────────────────────────────────────── */
+.avatar{width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0;}
+
+/* ── CHART ──────────────────────────────────────────────────────── */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+.chart-wrap{position:relative;width:100%;height:220px;}
+.chart-full{height:260px;}
+
+/* ── PROGRESS ───────────────────────────────────────────────────── */
+.progress-bar{background:rgba(255,255,255,.08);border-radius:4px;height:5px;overflow:hidden;}
+.progress-fill{height:100%;border-radius:4px;}
+
+/* ── SKELETON ───────────────────────────────────────────────────── */
+.skeleton{background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.08) 50%,rgba(255,255,255,.04) 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:4px;}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.sk-row{height:13px;margin-bottom:10px;} .sk-val{height:26px;width:55px;margin-bottom:6px;}
+
+/* ── SPINNER ────────────────────────────────────────────────────── */
+.spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.15);border-top-color:var(--c-accent2);border-radius:50%;animation:spin .6s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── ERROR / NOTES ──────────────────────────────────────────────── */
+.err-banner{background:rgba(248,113,113,.08);border:0.5px solid rgba(248,113,113,.2);border-radius:var(--r);padding:12px 16px;font-size:12px;color:var(--c-red);display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+.retry-btn{background:rgba(248,113,113,.1);border:0.5px solid rgba(248,113,113,.3);border-radius:var(--r);color:var(--c-red);font-size:11px;font-family:var(--font);padding:4px 10px;cursor:pointer;}
+.retry-btn:hover{background:rgba(248,113,113,.2);}
+.info-note{background:rgba(251,191,36,.08);border:0.5px solid rgba(251,191,36,.2);border-radius:var(--r);padding:12px 16px;font-size:12px;color:var(--c-amber);}
+.purple-note{background:rgba(167,139,250,.08);border:0.5px solid rgba(167,139,250,.2);border-radius:var(--r);padding:12px 16px;font-size:12px;color:var(--c-purple);}
+
+/* ── MODAL ──────────────────────────────────────────────────────── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:flex;align-items:center;justify-content:center;}
+.modal{background:var(--c-surface);border:0.5px solid var(--c-border2);border-radius:var(--rl);width:420px;max-height:80vh;overflow-y:auto;}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:0.5px solid var(--c-border);}
+.modal-hdr h3{font-size:15px;font-weight:500;}
+.modal-body{padding:20px;}
+.modal-footer{padding:14px 20px;border-top:0.5px solid var(--c-border);display:flex;justify-content:flex-end;gap:8px;}
+.form-group{margin-bottom:16px;}
+.form-label{font-size:12px;color:var(--c-muted);margin-bottom:6px;display:block;font-family:var(--mono);}
+.form-input{width:100%;background:rgba(255,255,255,.05);border:0.5px solid var(--c-border);border-radius:var(--r);padding:8px 12px;color:var(--c-text);font-size:13px;font-family:var(--font);outline:none;}
+.form-input:focus{border-color:var(--c-accent);}
+select.form-input option{background:#1c2335;}
+.close-btn{background:transparent;border:none;color:var(--c-muted);cursor:pointer;font-size:20px;line-height:1;padding:0;}
+.close-btn:hover{color:var(--c-text);}
+
+/* ── TOAST ──────────────────────────────────────────────────────── */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--c-card);border:0.5px solid var(--c-border2);border-left:3px solid var(--c-green);border-radius:var(--r);padding:12px 16px;font-size:13px;z-index:200;animation:slideup .2s ease;max-width:300px;}
+.toast.is-err{border-left-color:var(--c-red);}
+@keyframes slideup{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+/* ── SCROLLBAR ──────────────────────────────────────────────────── */
+::-webkit-scrollbar{width:4px;} ::-webkit-scrollbar-track{background:transparent;} ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ───────────────────────────────────────────────────── -->
+<header>
+  <div class="logo">
+    <div class="logo-box">
+      <svg viewBox="0 0 24 24"><path d="M20 8H4L2 12h20l-2-4zm-8 10c-1.1 0-2-.9-2-2h4c0 1.1-.9 2-2 2zM4 14h16v2H4v-2z"/></svg>
+    </div>
+    PORT//QUEUE — ADMIN
+  </div>
+  <div class="hdr-right">
+    <span class="api-tag" id="api-url-display">127.0.0.1:8000/api</span>
+    <span class="badge badge-warn" id="conn-badge">connecting…</span>
+    <div class="hdr-avatar">A</div>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- ── SIDEBAR ─────────────────────────────────────────────────── -->
+  <aside>
+    <div class="nav-section">
+      <div class="nav-label">Master Data</div>
+      <div class="nav-item active" onclick="nav('drivers',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        Drivers
+      </div>
+      <div class="nav-item" onclick="nav('vehicles',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="10" width="22" height="9" rx="2"/><path d="M5 10V7a2 2 0 012-2h10a2 2 0 012 2v3"/><circle cx="7" cy="19" r="2"/><circle cx="17" cy="19" r="2"/></svg>
+        Vehicle Categories
+      </div>
+      <div class="nav-item" onclick="nav('passengers',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+        Passenger Types
+      </div>
+    </div>
+    <div class="nav-div"></div>
+    <div class="nav-section">
+      <div class="nav-label">Dashboards</div>
+      <div class="nav-item" onclick="nav('driver-status',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        Driver Status
+      </div>
+      <div class="nav-item" onclick="nav('queue-progress',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Queue Progress
+      </div>
+      <div class="nav-item" onclick="nav('defer-stats',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+        Defer Statistics
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN ───────────────────────────────────────────────────── -->
+  <main id="main"></main>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal" style="display:none" onclick="onOverlayClick(event)">
+  <div class="modal">
+    <div class="modal-hdr">
+      <h3 id="modal-title"></h3>
+      <button class="close-btn" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="save-btn" onclick="saveModal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" style="display:none"></div>
+
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// CONFIGURATION — change API_BASE to point at your Laravel app
+// ═══════════════════════════════════════════════════════════
+const API_BASE = 'http://127.0.0.1:8000/api/admin';
+let _vehicleCategories = [];
+
+
+// ═══════════════════════════════════════════════════════════
+// API CLIENT
+// ═══════════════════════════════════════════════════════════
+const req = async (method, path, body) => {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(API_BASE + path, opts);
+  if (!r.ok) { const t = await r.text(); throw new Error(`HTTP ${r.status}: ${t.slice(0,120)}`); }
+  return r.json();
+};
+const GET    = p       => req('GET',    p);
+const POST   = (p,b)   => req('POST',   p, b);
+const PUT    = (p,b)   => req('PUT',    p, b);
+const PATCH  = (p,b)   => req('PATCH',  p, b);
+const DELETE = p       => req('DELETE', p);
+
+// ═══════════════════════════════════════════════════════════
+// CONNECTION HEALTH CHECK
+// ═══════════════════════════════════════════════════════════
+const badge = () => document.getElementById('conn-badge');
+async function checkConn() {
+  try {
+    await GET('/drivers?per_page=1');
+    await loadVehicleCategories();
+    badge().className = 'badge badge-live';
+    badge().textContent = 'LIVE';
+    
+  } catch {
+    badge().className = 'badge badge-err';
+    badge().textContent = 'OFFLINE';
+  }
+}
+checkConn();
+setInterval(checkConn, 30000);
+
+
+async function loadVehicleCategories() {
+  const res = await GET('/vehicle-categories');
+  _vehicleCategories = res.data || res;
+}
+
+// ═══════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════
+const initials = n => (n||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+const avatarColor = n => ['#3b82f6','#a78bfa','#34d399','#fbbf24','#f87171','#2dd4bf'][(n||'').charCodeAt(0)%6];
+
+function statusPill(s) {
+  const m = {ready:['pill-green','ready'],on_trip:['pill-blue','on trip'],break:['pill-amber','break'],off_duty:['pill-red','off duty'],inactive:['pill-gray','inactive']};
+  const [c,l] = m[s]||['pill-gray',s];
+  return `<span class="pill ${c}">${l}</span>`;
+}
+function catBadge(c) {
+  const m = {Motor:'pill-amber',Car:'pill-blue',Bus:'pill-purple'};
+  return `<span class="pill ${m[c]||'pill-gray'}">${c||'—'}</span>`;
+}
+const skRows = (cols,n=5) => Array(n).fill(0).map(()=>`<tr>${Array(cols).fill(0).map(()=>`<td><div class="skeleton sk-row" style="width:${55+Math.random()*35|0}%"></div></td>`).join('')}</tr>`).join('');
+function errBanner(msg, retryFn) {
+  return `<div class="err-banner">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <span style="flex:1">API error — ${msg}</span>
+    ${retryFn?`<button class="retry-btn" onclick="${retryFn}()">Retry</button>`:''}
+  </div>`;
+}
+const refreshIcon = () => `<svg style="width:13px;height:13px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>`;
+const plusIcon    = () => `<svg style="width:13px;height:13px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+
+// ═══════════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════════
+let _tt;
+function toast(msg, isErr=false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast' + (isErr ? ' is-err' : '');
+  el.style.display = 'block';
+  clearTimeout(_tt);
+  _tt = setTimeout(() => el.style.display='none', 3200);
+}
+
+// ═══════════════════════════════════════════════════════════
+// CHARTS
+// ═══════════════════════════════════════════════════════════
+let _charts = {};
+const destroyCharts = () => { Object.values(_charts).forEach(c=>{try{c.destroy()}catch(e){}}); _charts={}; };
+
+// ═══════════════════════════════════════════════════════════
+// NAV
+// ═══════════════════════════════════════════════════════════
+function nav(page, el) {
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  destroyCharts();
+  renderPage(page);
+}
+function renderPage(page) {
+  const m = document.getElementById('main');
+  ({
+    'drivers':        () => pageDrivers(m),
+    'vehicles':       () => pageVehicles(m),
+    'passengers':     () => pagePassengers(m),
+    'driver-status':  () => pageDriverStatus(m),
+    'queue-progress': () => pageQueueProgress(m),
+    'defer-stats':    () => pageDeferStats(m),
+  }[page] || (() => {}))();
+}
+renderPage('drivers');
+
+
+// ═══════════════════════════════════════════════════════════
+// MODAL
+// ═══════════════════════════════════════════════════════════
+let _modal = {};
+function openModal(title, bodyHtml, mode, id) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHtml;
+  _modal = { mode, id };
+  const btn = document.getElementById('save-btn');
+  btn.disabled = false;
+  btn.textContent = 'Save';
+  document.getElementById('modal').style.display = 'flex';
+}
+function closeModal() { document.getElementById('modal').style.display='none'; }
+function onOverlayClick(e) { if (e.target.id==='modal') closeModal(); }
+function fval(id) { const el=document.getElementById(id); return el?el.value.trim():''; }
+
+// ═══════════════════════════════════════════════════════════
+// SAVE MODAL — dispatches by mode
+// ═══════════════════════════════════════════════════════════
+// async function saveModal() {
+//   const btn = document.getElementById('save-btn');
+//   btn.disabled = true;
+//   btn.innerHTML = '<span class="spinner"></span> Saving…';
+//   try {
+//     const m = _modal.mode;
+
+//     if (m === 'add-driver' || m === 'edit-driver') {
+//       const payload = {
+//         name:          fval('f-name'),
+//         driver_code:   fval('f-code'),
+//         code:          fval('f-code'),
+//         category:      fval('f-cat'),
+//         phone:         fval('f-phone'),
+//         ...(m==='add-driver' ? { status:'inactive' } : {}),
+//       };
+//       if (!payload.name || !payload.driver_code) { toast('Name and code are required.', true); return; }
+//       m==='add-driver' ? await POST('/drivers', payload) : await PUT(`/drivers/${_modal.id}`, payload);
+//       toast(m==='add-driver' ? 'Driver added.' : 'Driver updated.');
+//       closeModal(); loadDrivers();
+
+//     } else if (m === 'add-vehicle' || m === 'edit-vehicle') {
+//       const payload = {
+//         code:        fval('f-code').toUpperCase(),
+//         prefix:      fval('f-code').toUpperCase(),
+//         name:        fval('f-name'),
+//         description: fval('f-desc'),
+//         capacity:    parseInt(fval('f-cap'))||1,
+//         ...(m==='add-vehicle' ? { is_active:true } : {}),
+//       };
+//       if (!payload.code || !payload.name) { toast('Code and name are required.', true); return; }
+//       m==='add-vehicle' ? await POST('/vehicle-categories', payload) : await PUT(`/vehicle-categories/${_modal.id}`, payload);
+//       toast(m==='add-vehicle' ? 'Category added.' : 'Category updated.');
+//       closeModal(); loadVehicles();
+
+//     } else if (m === 'add-passenger' || m === 'edit-passenger') {
+//       const payload = {
+//         name:     fval('f-name'),
+//         priority: parseInt(fval('f-priority'))||3,
+//         color:    fval('f-color'),
+//         is_vip:   fval('f-vip')==='1',
+//       };
+//       if (!payload.name) { toast('Name is required.', true); return; }
+//       m==='add-passenger' ? await POST('/passenger-types', payload) : await PUT(`/passenger-types/${_modal.id}`, payload);
+//       toast(m==='add-passenger' ? 'Passenger type added.' : 'Updated.');
+//       closeModal(); loadPassengers();
+//     }
+//   } catch(e) {
+//     toast('Save failed: ' + e.message, true);
+//   } finally {
+//     btn.disabled = false;
+//     btn.textContent = 'Save';
+//   }
+// }
+//  
+async function saveModal() {
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Saving…';
+
+  try {
+    const m = _modal.mode;
+
+    /* =====================================================
+       DRIVER (ADD / EDIT)
+    ===================================================== */
+    if (m === 'add-driver' || m === 'edit-driver') {
+
+      const payload = {
+        name: fval('f-name'),
+        driver_code: fval('f-code'),
+        vehicle_category_id: parseInt(fval('f-cat'), 10),
+        plate_number: fval('f-plate'),
+      };
+
+      // ✅ FRONTEND VALIDATION
+      if (
+        !payload.name ||
+        !payload.driver_code ||
+        Number.isNaN(payload.vehicle_category_id)
+      ) {
+        toast('Name, driver code, and vehicle category are required.', true);
+        return;
+      }
+
+      if (m === 'add-driver') {
+        await POST('/drivers', payload);
+        toast('Driver added successfully.');
+      } else {
+        await PUT(`/drivers/${_modal.id}`, payload);
+        toast('Driver updated successfully.');
+      }
+
+      closeModal();
+      loadDrivers();
+      return;
+    }
+
+    /* =====================================================
+       VEHICLE CATEGORY (ADD / EDIT)
+    ===================================================== */
+    if (m === 'add-vehicle' || m === 'edit-vehicle') {
+
+      const payload = {
+        name: fval('f-name'),
+      };
+
+      if (!payload.name) {
+        toast('Vehicle category name is required.', true);
+        return;
+      }
+
+      if (m === 'add-vehicle') {
+        await POST('/vehicle-categories', payload);
+        toast('Vehicle category added.');
+      } else {
+        await PUT(`/vehicle-categories/${_modal.id}`, payload);
+        toast('Vehicle category updated.');
+      }
+
+      closeModal();
+      loadVehicles();
+      return;
+    }
+
+    /* =====================================================
+       PASSENGER TYPE (ADD / EDIT)
+    ===================================================== */
+    if (m === 'add-passenger' || m === 'edit-passenger') {
+
+      const payload = {
+        name: fval('f-name'),
+        priority_level: parseInt(fval('f-priority'), 10),
+      };
+
+      if (!payload.name || Number.isNaN(payload.priority_level)) {
+        toast('Passenger type name and priority are required.', true);
+        return;
+      }
+
+      if (m === 'add-passenger') {
+        await POST('/passenger-types', payload);
+        toast('Passenger type added.');
+      } else {
+        await PUT(`/passenger-types/${_modal.id}`, payload);
+        toast('Passenger type updated.');
+      }
+
+      closeModal();
+      loadPassengers();
+      return;
+    }
+      /* =====================================================
+      DRIVER CARD (ADD)
+    ===================================================== */
+    if (m === 'driver-cards') {
+
+      const payload = {
+        card_uid: fval('f-card-uid'),
+        card_type: fval('f-card-type'),
+      };
+
+      if (!payload.card_uid || !payload.card_type) {
+        toast('Card UID and card type are required.', true);
+        return;
+      }
+
+      // ✅ _modal.id berisi driverId
+      await POST(`/drivers/${_modal.id}/cards`, payload);
+
+      toast('Driver card added.');
+
+      // reload modal content
+      openDriverCards(_modal.id);
+      return;
+    }
+
+
+  } catch (e) {
+    console.error(e);
+    toast('Save failed. Check input or API response.', true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save';
+  }
+}
+
+
+
+// ═══════════════════════════════════════════════════════════
+// PAGE: DRIVERS
+// ═══════════════════════════════════════════════════════════
+let _drivers = [];
+
+function pageDrivers(m) {
+  m.innerHTML = `
+    <div class="page-hdr"><h1>Driver Management</h1><p>Manage driver registrations, categories and activation status.</p></div>
+    <div class="stat-grid" id="drv-stats">${Array(5).fill('<div class="stat-card"><div class="skeleton sk-val"></div><div class="skeleton sk-row" style="width:55%"></div></div>').join('')}</div>
+    <div class="card">
+      <div class="card-hdr"><h2>All Drivers</h2>
+        <div class="card-actions">
+          <input class="search-input" id="drv-q" placeholder="Search name or code…" oninput="filterDrivers()"/>
+          <button class="btn btn-primary" onclick="openAddDriver()">${plusIcon()} Add Driver</button>
+          <button class="btn" onclick="loadDrivers()" title="Refresh">${refreshIcon()}</button>
+        </div>
+      </div>
+      <div id="drv-err"></div>
+      <table><thead><tr><th>Driver</th><th>Category</th><th>Status</th><th>Trips Today</th><th>Defers</th><th>Actions</th></tr></thead>
+      <tbody id="drv-tbody">${skRows(6)}</tbody></table>
+    </div>`;
+  loadDrivers();
+}
+
+async function loadDrivers() {
+  const err = document.getElementById('drv-err');
+  const tb  = document.getElementById('drv-tbody');
+  if (!err||!tb) return;
+  err.innerHTML = ''; tb.innerHTML = skRows(6);
+  try {
+    const res = await GET('/drivers');
+    _drivers = res.data || res;
+    renderDriverStats();
+    renderDriverRows(_drivers);
+  } catch(e) {
+    err.innerHTML = errBanner(e.message, 'loadDrivers');
+    tb.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--c-muted);padding:28px">Failed to load drivers.</td></tr>`;
+  }
+}
+
+function renderDriverStats() {
+  const el = document.getElementById('drv-stats'); if(!el) return;
+  const s = k => _drivers.filter(d=>d.status===k).length;
+  el.innerHTML = `
+    <div class="stat-card"><div class="stat-label">TOTAL</div><div class="stat-val">${_drivers.length}</div></div>
+    <div class="stat-card"><div class="stat-label">READY</div><div class="stat-val c-green">${s('ready')}</div></div>
+    <div class="stat-card"><div class="stat-label">ON TRIP</div><div class="stat-val c-blue">${s('on_trip')}</div></div>
+    <div class="stat-card"><div class="stat-label">ON BREAK</div><div class="stat-val c-amber">${s('break')}</div></div>
+    <div class="stat-card"><div class="stat-label">INACTIVE</div><div class="stat-val" style="color:var(--c-muted)">${s('inactive')}</div></div>`;
+}
+
+function renderDriverRows(list) {
+  const el = document.getElementById('drv-tbody'); if(!el) return;
+  if (!list.length) { el.innerHTML=`<tr><td colspan="6" style="text-align:center;color:var(--c-muted);padding:28px">No drivers found.</td></tr>`; return; }
+  el.innerHTML = list.map(d=>`
+    <tr>
+      <td><div style="display:flex;align-items:center;gap:10px">
+        <div class="avatar" style="background:${avatarColor(d.name)}22;color:${avatarColor(d.name)}">${initials(d.name)}</div>
+        <div><div style="font-weight:500">${d.name}</div><div style="font-size:11px;color:var(--c-muted);font-family:var(--mono)">${d.driver_code||d.code||'—'}</div></div>
+      </div></td>
+      <td>${catBadge(d.vehicle_category?.name||d.category)}</td>
+      <td>${statusPill(d.status)}</td>
+      <td><span style="font-family:var(--mono)">${d.trips_today??d.trips??'—'}</span></td>
+      <td><span style="font-family:var(--mono)">${d.defer_count??d.defer??'—'}</span></td>
+      <td>
+        <button class="action-btn" onclick="openEditDriver(${d.id})">Edit</button>
+        <button class="action-btn" onclick="toggleDriver(${d.id},'${d.status}')">${d.status==='inactive'?'Activate':'Deactivate'}</button>
+        <button class="action-btn" onclick="openDriverCards(${d.id})">
+          Cards
+        </button>
+
+        </td>
+      
+    </tr>`).join('');
+}
+
+function filterDrivers() {
+  const q = document.getElementById('drv-q').value.toLowerCase();
+  renderDriverRows(_drivers.filter(d=>(d.name||'').toLowerCase().includes(q)||(d.driver_code||d.code||'').toLowerCase().includes(q)));
+}
+
+function driverForm(d = {}) {
+  // build option dari cache kategori (ID-based)
+  const options = _vehicleCategories.map(c => `
+    <option value="${c.id}"
+      ${(d.vehicle_category_id === c.id ||
+        d.vehicle_category?.id === c.id) ? 'selected' : ''}>
+      ${c.name}
+    </option>
+  `).join('');
+
+  return `
+    <div class="form-group">
+      <label class="form-label">FULL NAME</label>
+      <input class="form-input"
+             id="f-name"
+             value="${d.name || ''}"
+             placeholder="e.g. Budi Santoso"/>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">DRIVER CODE</label>
+      <input class="form-input"
+             id="f-code"
+             value="${d.driver_code || ''}"
+             placeholder="e.g. D-009"/>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">VEHICLE CATEGORY</label>
+      <select class="form-input" id="f-cat">
+        <option value="">-- Select category --</option>
+        ${options}
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">PLATE NUMBER</label>
+      <input class="form-input"
+             id="f-plate"
+             value="${d.plate_number || ''}"
+             placeholder="DK 1234 AB"/>
+    </div>
+  `;
+}
+function openAddDriver()   { openModal('Add Driver',  driverForm(),  'add-driver'); }
+function openEditDriver(id){ const d=_drivers.find(x=>x.id===id); if(d) openModal('Edit Driver', driverForm(d), 'edit-driver', id); }
+
+//Driver cards modal
+async function openDriverCards(driverId) {
+  const cards = await GET(`/drivers/${driverId}/cards`);
+
+  const rows = cards.length
+    ? cards.map(c => `
+        <tr>
+          <td>${c.card_uid}</td>
+          <td>${c.card_type}</td>
+          <td>${c.active ? 'ACTIVE' : 'INACTIVE'}</td>
+          <td>
+            <button class="action-btn"
+              onclick="toggleDriverCard(${c.id})">
+              ${c.active ? 'Disable' : 'Enable'}
+            </button>
+            <button class="action-btn danger"
+              onclick="deleteDriverCard(${c.id}, ${driverId})">
+              Delete
+            </button>
+          </td>
+        </tr>
+      `).join('')
+    : `<tr><td colspan="4" style="text-align:center">No cards</td></tr>`;
+
+  openModal(
+    'Driver Cards',
+    `
+    <table>
+      <thead>
+        <tr>
+          <th>UID</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <hr style="margin:16px 0">
+
+    <div class="form-group">
+      <label class="form-label">Card UID</label>
+      <input class="form-input" id="f-card-uid">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Card Type</label>
+      <select class="form-input" id="f-card-type">
+        <option value="RFID">RFID</option>
+        <option value="BARCODE">BARCODE</option>
+      </select>
+    </div>
+    `,
+    'driver-cards',
+    driverId
+  );
+}
+
+
+
+async function addDriverCard(driverId) {
+  const payload = {
+    card_uid: fval('f-card-uid'),
+    card_type: fval('f-card-type'),
+  };
+
+  if (!payload.card_uid) {
+    toast('Card UID is required', true);
+    return;
+  }
+
+  await POST(`/drivers/${driverId}/cards`, payload);
+  toast('Card added');
+  openDriverCards(driverId);
+}
+
+async function toggleDriverCard(cardId) {
+  await PATCH(`/driver-cards/${cardId}/toggle`);
+  toast('Card updated');
+  renderPage('drivers');
+}
+
+async function deleteDriverCard(cardId, driverId) {
+  if (!confirm('Delete this card?')) return;
+  await DELETE(`/driver-cards/${cardId}`);
+  toast('Card deleted');
+  openDriverCards(driverId);
+}
+
+
+async function toggleDriver(id, status) {
+  const ns = status==='inactive' ? 'ready' : 'inactive';
+  try {
+    await PATCH(`/drivers/${id}/status`, { status: ns });
+    toast(`Driver ${ns==='inactive'?'deactivated':'activated'}.`);
+    loadDrivers();
+  } catch(e) { toast('Failed: '+e.message, true); }
+}
+
+// ═══════════════════════════════════════════════════════════
+// PAGE: VEHICLES
+// ═══════════════════════════════════════════════════════════
+let _vehicles = [];
+
+function pageVehicles(m) {
+  m.innerHTML = `
+    <div class="page-hdr"><h1>Vehicle Categories</h1><p>Configure queue prefix codes and passenger capacity per vehicle type.</p></div>
+    <div class="card">
+      <div class="card-hdr"><h2>Categories</h2>
+        <div class="card-actions">
+          <button class="btn btn-primary" onclick="openAddVehicle()">${plusIcon()} Add Category</button>
+          <button class="btn" onclick="loadVehicles()">${refreshIcon()}</button>
+        </div>
+      </div>
+      <div id="veh-err"></div>
+      <table><thead><tr><th>Code</th><th>Name</th><th>Description</th><th>Capacity</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody id="veh-tbody">${skRows(6)}</tbody></table>
+    </div>
+    <div class="card"><div class="card-hdr"><h2>Queue prefix preview</h2></div><div id="veh-preview" style="padding:16px 18px;display:flex;gap:14px;flex-wrap:wrap"></div></div>`;
+  loadVehicles();
+}
+
+async function loadVehicles() {
+  const err=document.getElementById('veh-err'), tb=document.getElementById('veh-tbody');
+  if(!err||!tb) return;
+  err.innerHTML=''; tb.innerHTML=skRows(6);
+  try {
+    const res = await GET('/vehicle-categories');
+    _vehicles = res.data||res;
+    tb.innerHTML = _vehicles.map(v=>`
+      <tr>
+        <td><span class="pill pill-blue" style="font-family:var(--mono)">${v.code||v.prefix}</span></td>
+        <td style="font-weight:500">${v.name}</td>
+        <td style="color:var(--c-muted)">${v.description||'—'}</td>
+        <td><span style="font-family:var(--mono)">${v.capacity||'—'}</span></td>
+        <td>${(v.is_active||v.active)?'<span class="pill pill-green">active</span>':'<span class="pill pill-gray">disabled</span>'}</td>
+        <td>
+          <button class="action-btn" onclick="openEditVehicle(${v.id})">Edit</button>
+          <button class="action-btn" onclick="toggleVehicle(${v.id},${!!(v.is_active||v.active)})">${(v.is_active||v.active)?'Disable':'Enable'}</button>
+        </td>
+      </tr>`).join('');
+    const pv = document.getElementById('veh-preview');
+    if(pv) pv.innerHTML = _vehicles.map(v=>`
+      <div style="background:rgba(255,255,255,.04);border:0.5px solid var(--c-border);border-radius:var(--r);padding:14px 20px;min-width:130px">
+        <div style="font-size:11px;color:var(--c-muted);margin-bottom:8px;font-family:var(--mono)">${v.name.toUpperCase()}</div>
+        <div style="font-family:var(--mono);font-size:20px;font-weight:500;color:var(--c-accent2)">${v.code||v.prefix}-001</div>
+        <div style="font-size:11px;color:var(--c-muted);margin-top:4px">→ ${v.code||v.prefix}-999</div>
+      </div>`).join('');
+  } catch(e) {
+    err.innerHTML=errBanner(e.message,'loadVehicles');
+    tb.innerHTML=`<tr><td colspan="6" style="text-align:center;color:var(--c-muted);padding:28px">Failed to load.</td></tr>`;
+  }
+}
+
+function vehicleForm(v={}) {
+  return `
+    <div class="form-group"><label class="form-label">PREFIX CODE (single letter)</label><input class="form-input" id="f-code" value="${v.code||v.prefix||''}" maxlength="1" placeholder="e.g. D"/></div>
+    <div class="form-group"><label class="form-label">NAME</label><input class="form-input" id="f-name" value="${v.name||''}" placeholder="e.g. Truck"/></div>
+    <div class="form-group"><label class="form-label">DESCRIPTION</label><input class="form-input" id="f-desc" value="${v.description||''}" placeholder="Brief description"/></div>
+    <div class="form-group"><label class="form-label">CAPACITY</label><input class="form-input" id="f-cap" type="number" value="${v.capacity||''}" placeholder="e.g. 4"/></div>`;
+}
+function openAddVehicle()    { openModal('Add Vehicle Category', vehicleForm(),  'add-vehicle'); }
+function openEditVehicle(id) { const v=_vehicles.find(x=>x.id===id); if(v) openModal('Edit Vehicle Category', vehicleForm(v), 'edit-vehicle', id); }
+
+async function toggleVehicle(id, current) {
+  try {
+    await PATCH(`/vehicle-categories/${id}`, { is_active:!current });
+    toast(`Category ${current?'disabled':'enabled'}.`);
+    loadVehicles();
+  } catch(e) { toast('Failed: '+e.message, true); }
+}
+
+// ═══════════════════════════════════════════════════════════
+// PAGE: PASSENGER TYPES
+// ═══════════════════════════════════════════════════════════
+let _passengers = [];
+
+function pagePassengers(m) {
+  m.innerHTML = `
+    <div class="page-hdr"><h1>Passenger Types &amp; Priority</h1><p>Define passenger categories and their Round Robin priority order.</p></div>
+    <div class="card">
+      <div class="card-hdr"><h2>Priority order</h2>
+        <div class="card-actions">
+          <button class="btn btn-primary" onclick="openAddPassenger()">${plusIcon()} Add Type</button>
+          <button class="btn" onclick="loadPassengers()">${refreshIcon()}</button>
+        </div>
+      </div>
+      <div id="pax-err"></div>
+      <table><thead><tr><th>Type</th><th>Priority</th><th>VIP</th><th>Today</th><th>Actions</th></tr></thead>
+      <tbody id="pax-tbody">${skRows(5)}</tbody></table>
+    </div>
+    <div class="info-note">Priority 0 / VVIP = highest. VVIP and VIP passengers are served before all regular queues in the RR engine.</div>`;
+  loadPassengers();
+}
+
+async function loadPassengers() {
+  const err=document.getElementById('pax-err'), tb=document.getElementById('pax-tbody');
+  if(!err||!tb) return;
+  err.innerHTML=''; tb.innerHTML=skRows(5);
+  try {
+    const res = await GET('/passenger-types');
+    _passengers = (res.data||res).sort((a,b)=>(a.priority??99)-(b.priority??99));
+    const maxC = Math.max(..._passengers.map(p=>p.today_count||p.count||0),1);
+    tb.innerHTML = _passengers.map(p=>`
+      <tr>
+        <td><div style="display:flex;align-items:center;gap:10px">
+          <div style="width:10px;height:10px;border-radius:50%;background:${p.color||'#7a8099'};flex-shrink:0"></div>
+          <span style="font-weight:500">${p.name}</span>
+        </div></td>
+        <td><span style="font-family:var(--mono)">${p.priority??'—'}</span></td>
+        <td>${(p.is_vip||p.vip)?'<span class="pill pill-purple">VIP</span>':'<span class="pill pill-gray">regular</span>'}</td>
+        <td><div style="display:flex;align-items:center;gap:8px">
+          <span style="font-family:var(--mono);min-width:24px">${p.today_count||p.count||0}</span>
+          <div class="progress-bar" style="width:70px"><div class="progress-fill" style="width:${Math.round((p.today_count||p.count||0)/maxC*100)}%;background:${p.color||'#7a8099'}"></div></div>
+        </div></td>
+        <td>
+          <button class="action-btn" onclick="openEditPassenger(${p.id})">Edit</button>
+          <button class="action-btn danger" onclick="deletePassenger(${p.id})">Remove</button>
+        </td>
+      </tr>`).join('');
+  } catch(e) {
+    err.innerHTML=errBanner(e.message,'loadPassengers');
+    tb.innerHTML=`<tr><td colspan="5" style="text-align:center;color:var(--c-muted);padding:28px">Failed to load.</td></tr>`;
+  }
+}
+
+function passengerForm(p={}) {
+  return `
+    <div class="form-group"><label class="form-label">NAME</label><input class="form-input" id="f-name" value="${p.name||''}" placeholder="e.g. Senior Citizen"/></div>
+    <div class="form-group"><label class="form-label">PRIORITY (lower = higher priority)</label><input class="form-input" id="f-priority" type="number" value="${p.priority??''}" placeholder="e.g. 2"/></div>
+    <div class="form-group"><label class="form-label">COLOR</label><input class="form-input" id="f-color" type="color" value="${p.color||'#3b82f6'}"/></div>
+    <div class="form-group"><label class="form-label">VIP STATUS</label>
+      <select class="form-input" id="f-vip">
+        <option value="0"${!(p.is_vip||p.vip)?' selected':''}>Regular</option>
+        <option value="1"${(p.is_vip||p.vip)?' selected':''}>VIP / VVIP</option>
+      </select>
+    </div>`;
+}
+function openAddPassenger()    { openModal('Add Passenger Type', passengerForm(),  'add-passenger'); }
+function openEditPassenger(id) { const p=_passengers.find(x=>x.id===id); if(p) openModal('Edit Passenger Type', passengerForm(p), 'edit-passenger', id); }
+
+async function deletePassenger(id) {
+  if (!confirm('Remove this passenger type?')) return;
+  try { await DELETE(`/passenger-types/${id}`); toast('Removed.'); loadPassengers(); }
+  catch(e) { toast('Failed: '+e.message, true); }
+}
+
+// ═══════════════════════════════════════════════════════════
+// PAGE: DRIVER STATUS DASHBOARD
+// ═══════════════════════════════════════════════════════════
+function pageDriverStatus(m) {
+  m.innerHTML = `
+    <div class="page-hdr"><h1>Driver Status Dashboard</h1><p>Live operational overview of all drivers.</p></div>
+    <div class="stat-grid" id="ds-stats">${Array(5).fill('<div class="stat-card"><div class="skeleton sk-val"></div><div class="skeleton sk-row" style="width:55%"></div></div>').join('')}</div>
+    <div class="chart-grid">
+      <div class="card"><div class="card-hdr"><h2>Status distribution</h2></div>
+        <div style="padding:16px"><div class="chart-wrap"><canvas id="c-status" role="img" aria-label="Driver status distribution">Driver status breakdown.</canvas></div></div>
+      </div>
+      <div class="card"><div class="card-hdr"><h2>Trips per driver (today)</h2></div>
+        <div style="padding:16px"><div class="chart-wrap"><canvas id="c-trips" role="img" aria-label="Trips per driver today">Trips completed per driver.</canvas></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><h2>All drivers</h2><button class="btn" onclick="loadDriverStatusDash()">${refreshIcon()}</button></div>
+      <div id="ds-err"></div>
+      <table><thead><tr><th>Driver</th><th>Category</th><th>Status</th><th>Trips</th><th>Breaks</th><th>Defers</th></tr></thead>
+      <tbody id="ds-tbody">${skRows(6)}</tbody></table>
+    </div>`;
+  loadDriverStatusDash();
+}
+
+async function loadDriverStatusDash() {
+  const err=document.getElementById('ds-err'), tb=document.getElementById('ds-tbody');
+  if(!err||!tb) return;
+  err.innerHTML=''; tb.innerHTML=skRows(6);
+  destroyCharts();
+  try {
+    // Endpoint: GET /dashboard/driver-status
+    // Expected response: { drivers: [...], summary: {...} }
+    // Fallback: also works with a plain drivers array
+    const res = await GET('/dashboard/driver-status');
+    const drivers = res.drivers||res.data||res;
+    const byS = {ready:0,on_trip:0,break:0,off_duty:0,inactive:0};
+    drivers.forEach(d=>{ if(byS[d.status]!==undefined) byS[d.status]++; });
+    const el=document.getElementById('ds-stats');
+    if(el) el.innerHTML=`
+      <div class="stat-card"><div class="stat-label">READY</div><div class="stat-val c-green">${byS.ready}</div><div class="stat-sub">waiting</div></div>
+      <div class="stat-card"><div class="stat-label">ON TRIP</div><div class="stat-val c-blue">${byS.on_trip}</div><div class="stat-sub">serving</div></div>
+      <div class="stat-card"><div class="stat-label">ON BREAK</div><div class="stat-val c-amber">${byS.break}</div><div class="stat-sub">resting</div></div>
+      <div class="stat-card"><div class="stat-label">OFF DUTY</div><div class="stat-val c-red">${byS.off_duty}</div><div class="stat-sub">exited</div></div>
+      <div class="stat-card"><div class="stat-label">INACTIVE</div><div class="stat-val" style="color:var(--c-muted)">${byS.inactive}</div><div class="stat-sub">not registered</div></div>`;
+    tb.innerHTML = drivers.map(d=>`
+      <tr>
+        <td><div style="display:flex;align-items:center;gap:10px">
+          <div class="avatar" style="background:${avatarColor(d.name)}22;color:${avatarColor(d.name)}">${initials(d.name)}</div>
+          <span style="font-weight:500">${d.name}</span>
+        </div></td>
+        <td>${catBadge(d.vehicle_category?.name||d.category)}</td>
+        <td>${statusPill(d.status)}</td>
+        <td><span style="font-family:var(--mono)">${d.trips_today??d.trips??'—'}</span></td>
+        <td><span style="font-family:var(--mono)">${d.breaks_today??d.breaks??'—'}</span></td>
+        <td><span style="font-family:var(--mono)">${d.defer_count??d.defer??'—'}</span></td>
+      </tr>`).join('');
+    setTimeout(() => {
+      const cs=document.getElementById('c-status');
+      const ct=document.getElementById('c-trips');
+      if(cs) _charts.status = new Chart(cs,{type:'doughnut',data:{labels:['Ready','On Trip','Break','Off Duty','Inactive'],datasets:[{data:Object.values(byS),backgroundColor:['#34d399','#60a5fa','#fbbf24','#f87171','#4b5563'],borderWidth:0,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#7a8099',font:{size:11},boxWidth:10,padding:10}}},cutout:'68%'}});
+      const active=drivers.filter(d=>d.status!=='inactive');
+      if(ct) _charts.trips = new Chart(ct,{type:'bar',data:{labels:active.map(d=>(d.name||'').split(' ')[0]),datasets:[{label:'Trips',data:active.map(d=>d.trips_today??d.trips??0),backgroundColor:active.map(d=>avatarColor(d.name)+'66'),borderColor:active.map(d=>avatarColor(d.name)),borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#7a8099',font:{size:10}},grid:{display:false}},y:{ticks:{color:'#7a8099',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'}}}}});
+    },100);
+  } catch(e) {
+    err.innerHTML=errBanner(e.message,'loadDriverStatusDash');
+    tb.innerHTML=`<tr><td colspan="6" style="text-align:center;color:var(--c-muted);padding:28px">Failed to load.</td></tr>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// PAGE: QUEUE PROGRESS
+// ═══════════════════════════════════════════════════════════
+function pageQueueProgress(m) {
+  m.innerHTML = `
+    <div class="page-hdr"><h1>Queue Progress Dashboard</h1><p>Today's passenger queue throughput across all vehicle categories.</p></div>
+    <div class="stat-grid" id="qp-stats">${Array(4).fill('<div class="stat-card"><div class="skeleton sk-val"></div><div class="skeleton sk-row" style="width:55%"></div></div>').join('')}</div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-hdr"><h2>Served over time</h2><button class="btn" onclick="loadQueueProgress()">${refreshIcon()}</button></div>
+      <div id="qp-err"></div>
+      <div style="padding:16px"><div class="chart-wrap chart-full"><canvas id="c-queue" role="img" aria-label="Queue served over time">Cumulative passengers served today.</canvas></div></div>
+    </div>
+    <div id="qp-cats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px">
+      ${Array(3).fill('<div class="card"><div style="padding:16px"><div class="skeleton sk-val"></div><div class="skeleton sk-row"></div></div></div>').join('')}
+    </div>`;
+  loadQueueProgress();
+}
+
+async function loadQueueProgress() {
+  const err=document.getElementById('qp-err'); if(!err) return;
+  err.innerHTML=''; destroyCharts();
+  try {
+    // Endpoint: GET /dashboard/queue-progress
+    // Expected: { summary:{total_queues,total_served}, categories:[{name,prefix,total,served}], hourly:[{hour,served}] }
+    const res = await GET('/dashboard/queue-progress');
+    const cats    = res.categories||[];
+    const hourly  = res.hourly||[];
+    const summary = res.summary||{};
+    const totalQ  = summary.total_queues || cats.reduce((a,c)=>a+(c.total||0),0);
+    const totalS  = summary.total_served || cats.reduce((a,c)=>a+(c.served||0),0);
+    const el=document.getElementById('qp-stats');
+    if(el) el.innerHTML=`
+      <div class="stat-card"><div class="stat-label">TOTAL QUEUES</div><div class="stat-val c-blue">${totalQ}</div></div>
+      <div class="stat-card"><div class="stat-label">SERVED</div><div class="stat-val c-green">${totalS}</div></div>
+      <div class="stat-card"><div class="stat-label">REMAINING</div><div class="stat-val c-amber">${totalQ-totalS}</div></div>
+      <div class="stat-card"><div class="stat-label">THROUGHPUT</div><div class="stat-val">${totalQ>0?Math.round(totalS/totalQ*100):0}%</div></div>`;
+    const catColors={Motor:'#fbbf24',Car:'#60a5fa',Bus:'#a78bfa'};
+    const catEl=document.getElementById('qp-cats');
+    if(catEl) catEl.innerHTML=cats.map(c=>`
+      <div class="card"><div style="padding:16px">
+        <div style="font-size:12px;color:var(--c-muted);margin-bottom:10px;font-family:var(--mono)">${c.name||c.category} (${c.prefix||'?'})</div>
+        <div style="font-size:22px;font-weight:500;color:${catColors[c.name]||'#60a5fa'};margin-bottom:10px">${c.served} <span style="font-size:13px;color:var(--c-muted)">/ ${c.total}</span></div>
+        <div class="progress-bar" style="margin-bottom:6px"><div class="progress-fill" style="width:${c.total>0?Math.round(c.served/c.total*100):0}%;background:${catColors[c.name]||'#60a5fa'}"></div></div>
+        <div style="font-size:11px;color:var(--c-muted)">${c.total>0?Math.round(c.served/c.total*100):0}% served</div>
+      </div></div>`).join('');
+    setTimeout(()=>{
+      const cq=document.getElementById('c-queue');
+      if(!cq) return;
+      if(hourly.length) {
+        _charts.queue=new Chart(cq,{type:'line',data:{labels:hourly.map(h=>h.hour||h.label||h.time),datasets:[{label:'Served',data:hourly.map(h=>h.served||h.count||0),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.08)',fill:true,tension:0.4,pointBackgroundColor:'#3b82f6',pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#7a8099',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}},y:{ticks:{color:'#7a8099',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'},min:0}}}});
+      } else {
+        cq.parentElement.innerHTML=`<div style="color:var(--c-muted);font-size:12px;text-align:center;padding:60px 0">No hourly data returned.<br><span style="font-size:11px;opacity:.7">Expected: GET /dashboard/queue-progress → .hourly[]</span></div>`;
+      }
+    },100);
+  } catch(e) { err.innerHTML=errBanner(e.message,'loadQueueProgress'); }
+}
+
+// ═══════════════════════════════════════════════════════════
+// PAGE: DEFER STATISTICS
+// ═══════════════════════════════════════════════════════════
+function pageDeferStats(m) {
+  m.innerHTML = `
+    <div class="page-hdr"><h1>Defer Statistics</h1><p>Track defer-once usage per driver to ensure fairness and detect potential abuse.</p></div>
+    <div class="stat-grid" id="df-stats">${Array(4).fill('<div class="stat-card"><div class="skeleton sk-val"></div><div class="skeleton sk-row" style="width:55%"></div></div>').join('')}</div>
+    <div class="chart-grid">
+      <div class="card"><div class="card-hdr"><h2>Defers per driver</h2></div>
+        <div style="padding:16px"><div class="chart-wrap"><canvas id="c-dbar" role="img" aria-label="Defer count per driver bar chart">Defers per driver.</canvas></div></div>
+      </div>
+      <div class="card"><div class="card-hdr"><h2>Defers by category</h2></div>
+        <div style="padding:16px"><div class="chart-wrap"><canvas id="c-dcat" role="img" aria-label="Defers by vehicle category donut chart">Defers by category.</canvas></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><h2>Driver defer detail</h2><button class="btn" onclick="loadDeferStats()">${refreshIcon()}</button></div>
+      <div id="df-err"></div>
+      <table><thead><tr><th>Driver</th><th>Category</th><th>Defers</th><th>Activity</th></tr></thead>
+      <tbody id="df-tbody">${skRows(4)}</tbody></table>
+    </div>
+    <div class="purple-note">Defer-once is a fairness mechanism — not a penalty. Drivers flagged as "monitor" (&gt;2 defers) may warrant a supervisor check, not automatic punishment.</div>`;
+  loadDeferStats();
+}
+
+async function loadDeferStats() {
+  const err=document.getElementById('df-err'), tb=document.getElementById('df-tbody');
+  if(!err||!tb) return;
+  err.innerHTML=''; tb.innerHTML=skRows(4); destroyCharts();
+  try {
+    // Endpoint: GET /dashboard/defer-statistics
+    // Expected: { drivers: [{name, driver_code, category, vehicle_category, defer_count, ...}] }
+    const res = await GET('/dashboard/defer-statistics');
+    const drivers = res.drivers||res.data||res;
+    const dc = d => d.defer_count||d.defer||0;
+    const total     = drivers.reduce((a,d)=>a+dc(d),0);
+    const deferring = drivers.filter(d=>dc(d)>0).length;
+    const monitored = drivers.filter(d=>dc(d)>2).length;
+    const maxD      = Math.max(...drivers.map(d=>dc(d)),0);
+    const el=document.getElementById('df-stats');
+    if(el) el.innerHTML=`
+      <div class="stat-card"><div class="stat-label">TOTAL DEFERS</div><div class="stat-val c-purple">${total}</div></div>
+      <div class="stat-card"><div class="stat-label">DEFERRING DRIVERS</div><div class="stat-val">${deferring}</div></div>
+      <div class="stat-card"><div class="stat-label">MONITOR (&gt;2)</div><div class="stat-val c-amber">${monitored}</div></div>
+      <div class="stat-card"><div class="stat-label">MAX (1 DRIVER)</div><div class="stat-val c-red">${maxD}</div></div>`;
+    const sorted=[...drivers].sort((a,b)=>dc(b)-dc(a));
+    tb.innerHTML=sorted.map(d=>`
+      <tr>
+        <td><div style="display:flex;align-items:center;gap:10px">
+          <div class="avatar" style="background:${avatarColor(d.name)}22;color:${avatarColor(d.name)}">${initials(d.name)}</div>
+          <div><div style="font-weight:500">${d.name}</div><div style="font-size:11px;color:var(--c-muted);font-family:var(--mono)">${d.driver_code||d.code||'—'}</div></div>
+        </div></td>
+        <td>${catBadge(d.vehicle_category?.name||d.category)}</td>
+        <td><span style="font-family:var(--mono)">${dc(d)}</span></td>
+        <td><div style="display:flex;align-items:center;gap:8px">
+          <div class="progress-bar" style="width:80px"><div class="progress-fill" style="width:${maxD>0?Math.round(dc(d)/maxD*100):0}%;background:${dc(d)>2?'#f87171':dc(d)>0?'#fbbf24':'#34d399'}"></div></div>
+          ${dc(d)>2?'<span class="pill pill-red" style="font-size:10px">monitor</span>':''}
+        </div></td>
+      </tr>`).join('');
+    setTimeout(()=>{
+      const db=document.getElementById('c-dbar'), dcat=document.getElementById('c-dcat');
+      if(db) _charts.dbar=new Chart(db,{type:'bar',data:{labels:drivers.map(d=>(d.name||'').split(' ')[0]),datasets:[{label:'Defers',data:drivers.map(d=>dc(d)),backgroundColor:drivers.map(d=>dc(d)>2?'rgba(248,113,113,0.5)':dc(d)>0?'rgba(251,191,36,0.5)':'rgba(52,211,153,0.3)'),borderColor:drivers.map(d=>dc(d)>2?'#f87171':dc(d)>0?'#fbbf24':'#34d399'),borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#7a8099',font:{size:10}},grid:{display:false}},y:{ticks:{color:'#7a8099',font:{size:10},stepSize:1},grid:{color:'rgba(255,255,255,0.05)'},min:0,max:Math.max(maxD+1,4)}}}});
+      const catMap={};
+      drivers.forEach(d=>{const k=d.vehicle_category?.name||d.category||'Other';catMap[k]=(catMap[k]||0)+dc(d);});
+      if(dcat) _charts.dcat=new Chart(dcat,{type:'doughnut',data:{labels:Object.keys(catMap),datasets:[{data:Object.values(catMap),backgroundColor:['rgba(251,191,36,0.7)','rgba(96,165,250,0.7)','rgba(167,139,250,0.7)','rgba(45,212,191,0.7)'],borderWidth:0,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#7a8099',font:{size:11},boxWidth:10,padding:10}}},cutout:'65%'}});
+    },100);
+  } catch(e) {
+    err.innerHTML=errBanner(e.message,'loadDeferStats');
+    tb.innerHTML=`<tr><td colspan="4" style="text-align:center;color:var(--c-muted);padding:28px">Failed to load.</td></tr>`;
+  }
+}
+</script>
+</body>
+</html>

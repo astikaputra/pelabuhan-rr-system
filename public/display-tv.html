@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>DISPLAY ANTRIAN PELABUHAN</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        body {
+            margin: 0;
+            background: #0a2b5c;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+        }
+
+        header {
+            background: #01204a;
+            padding: 20px;
+            text-align: center;
+            font-size: 42px;
+            font-weight: bold;
+        }
+
+        .container {
+            display: flex;
+            height: calc(100vh - 90px);
+        }
+
+        .column {
+            flex: 1;
+            padding: 20px;
+        }
+
+        .waiting {
+            background: #133b7a;
+            border-right: 5px solid #ffffff;
+        }
+
+        .active {
+            background: #0e4d2b;
+        }
+
+        h2 {
+            text-align: center;
+            font-size: 36px;
+            margin-bottom: 20px;
+        }
+
+        .queue-item {
+            background: #ffffff;
+            color: #000000;
+            padding: 18px;
+            margin-bottom: 12px;
+            font-size: 34px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .vip {
+            background: gold;
+        }
+
+        .vvip {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .active-box {
+            background: #ffffff;
+            color: #000000;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            font-size: 38px;
+        }
+
+        .driver-name {
+            font-size: 54px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+
+        footer {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            text-align: center;
+            padding: 10px;
+            background: #01204a;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    SISTEM ANTRIAN PELABUHAN
+</header>
+
+<div class="container">
+
+    <!-- ANTRIAN MENUNGGU -->
+    <div class="column waiting">
+        <h2>MENUNGGU ANTRIAN</h2>
+        <div id="waitingList">
+            Memuat data...
+        </div>
+    </div>
+
+    <!-- ANTRIAN DIPANGGIL -->
+    <div class="column active">
+        <h2>DIPANGGIL SEKARANG</h2>
+        <div id="activeBox" class="active-box">
+            Menunggu panggilan...
+        </div>
+    </div>
+
+</div>
+
+<footer id="clock"></footer>
+
+<script>
+    const API_BASE = "http://127.0.0.1:8000/api";
+    let lastCalledQueue = null;
+
+    function loadWaiting() {
+        fetch(API_BASE + "/display/waiting?limit=5")
+            .then(res => res.json())
+            .then(res => {
+                const el = document.getElementById("waitingList");
+                el.innerHTML = "";
+
+                res.data.forEach(q => {
+                    let cls = "queue-item";
+                    if (q.passenger_type === "VIP") cls += " vip";
+                    if (q.passenger_type === "VVIP") cls += " vvip";
+
+                    el.innerHTML += `
+                        <div class="${cls}">
+                            <span>${q.queue_number}</span>
+                            <span>${q.passenger_type}</span>
+                        </div>
+                    `;
+                });
+            });
+    }
+
+    // function loadActive() {
+    //     fetch(API_BASE + "/display/active?limit=1")
+    //         .then(res => res.json())
+    //         .then(res => {
+    //             const el = document.getElementById("activeBox");
+    //             if (res.data.length === 0) {
+    //                 el.innerHTML = "Menunggu panggilan...";
+    //                 return;
+    //             }
+
+    //             const a = res.data[0];
+    //             el.innerHTML = `
+    //                 <div>${a.queue_number}</div>
+    //                 <div class="driver-name">${a.driver_name}</div>
+    //                 <div>${a.vehicle} - ${a.plate_number}</div>
+    //                 <div><strong>SILAKAN MENUJU AREA PICK-UP</strong></div>
+    //             `;
+    //         });
+    // }
+
+    
+    function loadActive() {
+        fetch(API_BASE + "/display/active?limit=1")
+            .then(res => res.json())
+            .then(res => {
+                if (!res.data || res.data.length === 0) return;
+
+                const a = res.data[0];
+
+                // update tampilan
+                document.getElementById("activeBox").innerHTML = `
+                    <div>${a.queue_number}</div>
+                    <div class="driver-name">${a.driver_name}</div>
+                    <div>${a.vehicle} - ${a.plate_number}</div>
+                    <div><strong>SILAKAN MENUJU AREA PICK-UP</strong></div>
+                `;
+
+                // 🔊 AUDIO HANYA JIKA NOMOR BARU
+                if (a.queue_number !== lastCalledQueue) {
+                    lastCalledQueue = a.queue_number;
+                    playCall(a.queue_number, a.passenger_type);
+                }
+            });
+    }
+
+    // polling tiap 3 detik
+    //setInterval(loadActive, 3000);
+
+
+    function updateClock() {
+        const now = new Date();
+        document.getElementById("clock").innerText =
+            now.toLocaleDateString("id-ID") + " - " +
+            now.toLocaleTimeString("id-ID");
+    }
+
+    // auto refresh
+    setInterval(() => {
+        loadWaiting();
+        loadActive();
+        updateClock();
+    }, 3000);
+
+    // initial load
+    loadWaiting();
+    loadActive();
+    updateClock();
+    
+    
+    function playCall(queueNumber, passengerType) {
+        let text = `Nomor antrian ${queueNumber}, silakan menuju area penjemputan`;
+
+        if (passengerType === 'VIP') {
+            text = `Nomor antrian ${queueNumber}, VIP, silakan menuju area penjemputan`;
+        }
+
+        if (passengerType === 'VVIP') {
+            text = `Nomor antrian ${queueNumber}, V I V I P, silakan menuju area penjemputan`;
+        }
+
+        const msg = new SpeechSynthesisUtterance(text);
+        msg.lang = 'id-ID';
+        msg.rate = 0.9;
+        msg.pitch = 1;
+        msg.volume = 1;
+
+        speechSynthesis.cancel(); // stop suara sebelumnya
+        speechSynthesis.speak(msg);
+    }
+
+</script>
+
+</body>
+</html>
